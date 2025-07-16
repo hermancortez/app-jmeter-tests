@@ -26,14 +26,26 @@ jobs:
 
     - name: Wait for the API to be ready
       run: |
-        for i in {1..10}; do
+        for i in {1..20}; do # Aumentar los intentos de espera
           if curl -s http://localhost:3000/api/ping | grep -q pong; then
             echo "API is up ✅"
             break
           fi
           echo "Waiting for API..."
-          sleep 5
+          sleep 3 # Reducir el sleep para más intentos en el mismo tiempo
         done
+        # Añadir una verificación de falla si la API no sube
+        if ! curl -s http://localhost:3000/api/ping | grep -q pong; then
+          echo "API did not come up after multiple attempts. Exiting."
+          exit 1 # Fallar el workflow si la API no está lista
+        fi
+
+    - name: Verify API connectivity from another container # NUEVO PASO DE DEPURACIÓN DE CONECTIVIDAD
+      run: |
+        echo "Attempting to connect to dummy app from a temporary container..."
+        # Usar un contenedor temporal para probar la conectividad a localhost:3000
+        docker run --rm busybox:latest sh -c "nc -zv localhost 3000"
+        echo "Connectivity test complete."
 
     - name: List JMX files for debugging
       run: |
