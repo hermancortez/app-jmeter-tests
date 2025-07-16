@@ -24,10 +24,12 @@ jobs:
         cd dummy-app
         docker compose up -d --build
 
-    - name: Debug: List running Docker containers # NUEVO PASO DE DEPURACIÓN
+    # NUEVO PASO DE DEPURACIÓN: Listar contenedores Docker en ejecución
+    - name: Debug: List running Docker containers
       run: docker ps -a
 
-    - name: Debug: Get dummy app container logs # NUEVO PASO DE DEPURACIÓN CRÍTICO
+    # NUEVO PASO DE DEPURACIÓN CRÍTICO: Obtener logs de la aplicación dummy
+    - name: Debug: Get dummy app container logs
       run: |
         # El nombre del contenedor es 'dummy-app-app-1' según tu log.
         # Esto nos mostrará los logs internos de tu aplicación Node.js.
