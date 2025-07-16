@@ -1,0 +1,73 @@
+name: JMeter Performance Tests # Nombre descriptivo del workflow
+
+on:
+  push:
+    branches: [main] # Se dispara en cada push a la rama 'main'
+  pull_request:
+    branches: [main] # Se dispara en cada pull request a la rama 'main'
+
+jobs:
+  performance-test: # Define un job llamado 'performance-test'
+    runs-on: ubuntu-latest # Ejecuta el job en el último Ubuntu disponible
+
+    services:
+      # Configura un servicio Docker para que esté disponible para el job.
+      # Esto es necesario para ejecutar comandos docker y docker compose.
+      docker:
+        image: docker:20.10.7 # Imagen de Docker con la versión especificada
+        options: --privileged # Opciones para el contenedor Docker (puede ser necesario para Docker Compose)
+
+    steps:
+    - name: Checkout repo # Paso para clonar tu repositorio de GitHub
+      uses: actions/checkout@v4 # Usa la última versión estable de la acción de checkout
+
+    - name: Start dummy app with Docker Compose # Inicia la aplicación de prueba usando Docker Compose
+      run: |
+        # CORRECCIÓN 1: Cambiar 'app-dummy' a 'dummy-app'
+        # Según tu estructura de carpetas, la aplicación está en 'dummy-app', no 'app-dummy'.
+        cd dummy-app
+        docker compose up -d --build # Inicia los servicios definidos en docker-compose.yml en segundo plano
+
+    - name: Wait for the API to be ready # Espera a que la API de la aplicación dummy esté disponible
+      run: |
+        # Bucle para intentar conectar a la API.
+        # Intenta 10 veces, esperando 5 segundos entre cada intento.
+        for i in {1..10}; do
+          # Usa curl para hacer una solicitud al endpoint /api/ping
+          # grep -q pong verifica si la respuesta contiene "pong"
+          if curl -s http://localhost:3000/api/ping | grep -q pong; then
+            echo "API is up ✅"
+            break # Sale del bucle si la API responde correctamente
+          fi
+          echo "Waiting for API..."
+          sleep 5 # Espera 5 segundos antes de reintentar
+        done
+
+    - name: Run JMeter test # Ejecuta las pruebas de rendimiento con JMeter
+      run: |
+        # Ejecuta un contenedor Docker con JMeter.
+        # --rm: Elimina el contenedor después de que termina.
+        # -v ${{ github.workspace }}/jmeter:/tests: Monta tu carpeta 'jmeter' del repositorio
+        #     en el directorio '/tests' dentro del contenedor JMeter.
+        # -w /tests: Establece el directorio de trabajo dentro del contenedor a '/tests'.
+        # justb4/jmeter: La imagen Docker de JMeter que se va a usar.
+        # -n: Ejecuta JMeter en modo no GUI.
+        # -t test-plan.jmx: Especifica el archivo de plan de prueba.
+        # CORRECCIÓN 2: Cambiar 'test-plan.jmx' a 'Thread Group.jmx'
+        # Según tu estructura de carpetas, el archivo JMX se llama 'Thread Group.jmx'.
+        # -l results.jtl: Guarda los resultados brutos en 'results.jtl'.
+        # -e -o report: Genera el informe HTML en el directorio 'report'.
+        docker run --rm \
+          -v ${{ github.workspace }}/jmeter:/tests \
+          -w /tests \
+          justb4/jmeter \
+          -n -t "Thread Group.jmx" \ # Asegúrate de usar comillas si el nombre tiene espacios
+          -l results.jtl \
+          -e -o report
+
+    - name: Upload HTML Report # Sube el informe HTML generado por JMeter como un artefacto de GitHub Actions
+      uses: actions/upload-artifact@v4 # Usa la última versión estable de la acción de upload-artifact
+      with:
+        name: jmeter-html-report # Nombre del artefacto
+        # La ruta 'jmeter/report' es correcta, ya que el comando JMeter lo genera dentro del volumen montado 'jmeter'.
+        path: jmeter/report
