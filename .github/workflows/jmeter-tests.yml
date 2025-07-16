@@ -24,18 +24,32 @@ jobs:
         cd dummy-app
         docker compose up -d --build
 
-    - name: Wait for the API to be ready
+    - name: Debug: List running Docker containers # NUEVO PASO DE DEPURACIÓN
+      run: docker ps -a
+
+    - name: Debug: Get dummy app container logs # NUEVO PASO DE DEPURACIÓN CRÍTICO
+      run: |
+        # El nombre del contenedor es 'dummy-app-app-1' según tu log.
+        # Esto nos mostrará los logs internos de tu aplicación Node.js.
+        docker logs dummy-app-app-1 || true # || true para que el paso no falle si el contenedor no existe por alguna razón
+
+    - name: Wait for the API to be ready (Verbose)
       run: |
         # Usar el nombre del servicio Docker Compose para la verificación con curl
-        for i in {1..20}; do
-          if curl -s http://app:3000/api/ping | grep -q pong; then # CAMBIADO localhost a 'app'
+        # Añadir '-v' para salida verbose de curl
+        # Aumentar los intentos y el sleep para un tiempo total de espera mayor (ej. 100s)
+        for i in {1..25}; do # Aumentar los intentos a 25
+          # Usar el nombre del servicio correcto aquí. Si tu servicio es 'app', déjalo.
+          # Si es otro nombre (ej. 'mi_aplicacion_dummy'), cámbialo.
+          if curl -sv http://app:3000/api/ping | grep -q pong; then # Añadido '-v' a curl
             echo "API is up ✅"
             break
           fi
           echo "Waiting for API..."
-          sleep 3
+          sleep 4 # Aumentar el sleep a 4 segundos (25 * 4 = 100 segundos de espera total)
         done
-        if ! curl -s http://app:3000/api/ping | grep -q pong; then # CAMBIADO localhost a 'app'
+        # Añadir una verificación de falla si la API no sube
+        if ! curl -s http://app:3000/api/ping | grep -q pong; then
           echo "API did not come up after multiple attempts. Exiting."
           exit 1
         fi
@@ -44,7 +58,8 @@ jobs:
       run: |
         echo "Attempting to connect to dummy app from a temporary container..."
         # Usar el nombre del servicio Docker Compose para la verificación con nc
-        docker run --rm busybox:latest sh -c "nc -zv app 3000" # CAMBIADO localhost a 'app'
+        # Usar el nombre del servicio correcto aquí.
+        docker run --rm busybox:latest sh -c "nc -zv app 3000"
         echo "Connectivity test complete."
 
     - name: List JMX files for debugging
