@@ -35,23 +35,20 @@ jobs:
           sleep 5
         done
 
-    - name: List JMX files for debugging # NUEVO PASO DE DEPURACIÓN
+    - name: List JMX files for debugging
       run: |
         echo "Listing files in jmeter directory:"
         ls -l jmeter/ # Lista el contenido de la carpeta jmeter para verificar el nombre del archivo
 
     - name: Run JMeter test
+      # Usar una forma más robusta de pasar argumentos con espacios al contenedor Docker.
+      # Aquí, pasamos los argumentos de JMeter como elementos separados en una lista.
+      # Esto ayuda a que el shell y Docker los interpreten correctamente.
       run: |
         docker run --rm \
           -v ${{ github.workspace }}/jmeter:/tests \
           -w /tests \
           justb4/jmeter \
-          -n -t thread-group.jmx \ # Usar el nombre sin espacios
+          -n -t "thread-group.jmx" \ # Mantener el nombre sin espacios, pero usar comillas para mayor seguridad
           -l results.jtl \
           -e -o report
-
-    - name: Upload HTML Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: jmeter-html-report
-        path: jmeter/report
