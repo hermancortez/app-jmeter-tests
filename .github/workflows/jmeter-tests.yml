@@ -26,25 +26,25 @@ jobs:
 
     - name: Wait for the API to be ready
       run: |
-        for i in {1..20}; do # Aumentar los intentos de espera
-          if curl -s http://localhost:3000/api/ping | grep -q pong; then
+        # Usar el nombre del servicio Docker Compose para la verificación con curl
+        for i in {1..20}; do
+          if curl -s http://app:3000/api/ping | grep -q pong; then # CAMBIADO localhost a 'app'
             echo "API is up ✅"
             break
           fi
           echo "Waiting for API..."
-          sleep 3 # Reducir el sleep para más intentos en el mismo tiempo
+          sleep 3
         done
-        # Añadir una verificación de falla si la API no sube
-        if ! curl -s http://localhost:3000/api/ping | grep -q pong; then
+        if ! curl -s http://app:3000/api/ping | grep -q pong; then # CAMBIADO localhost a 'app'
           echo "API did not come up after multiple attempts. Exiting."
-          exit 1 # Fallar el workflow si la API no está lista
+          exit 1
         fi
 
-    - name: Verify API connectivity from another container # NUEVO PASO DE DEPURACIÓN DE CONECTIVIDAD
+    - name: Verify API connectivity from another container
       run: |
         echo "Attempting to connect to dummy app from a temporary container..."
-        # Usar un contenedor temporal para probar la conectividad a localhost:3000
-        docker run --rm busybox:latest sh -c "nc -zv localhost 3000"
+        # Usar el nombre del servicio Docker Compose para la verificación con nc
+        docker run --rm busybox:latest sh -c "nc -zv app 3000" # CAMBIADO localhost a 'app'
         echo "Connectivity test complete."
 
     - name: List JMX files for debugging
