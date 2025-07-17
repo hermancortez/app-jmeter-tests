@@ -18,54 +18,27 @@ jobs:
     steps:
     - name: Checkout repo
       uses: actions/checkout@v4
+    
+    - name: Print Runner Hostname # Nuevo paso para imprimir el hostname
+      run: |
+        echo "Hostname del runner: $(hostname)"
+        echo "Dirección IP del runner: $(hostname -I | awk '{print $1}')" # Muestra la primera IP
 
     - name: Start dummy app with Docker Compose
       run: |
         cd dummy-app
         docker compose up -d --build
 
-    - name: List running Docker containers
-      run: docker ps -a
-
-    - name: Get dummy app container logs
+    - name: Wait for the API to be ready
       run: |
-        # El nombre del contenedor es 'dummy-app-app-1' según tu log.
-        # Esto nos mostrará los logs internos de tu aplicación Node.js.
-        docker logs dummy-app-app-1 || true # || true para que el paso no falle si el contenedor no existe por alguna razón
-
-    - name: Wait for the API to be ready (Verbose)
-      run: |
-        # Usar el nombre del servicio Docker Compose para la verificación con curl
-        # Añadir '-v' para salida verbose de curl
-        # Aumentar los intentos y el sleep para un tiempo total de espera mayor (ej. 100s)
-        for i in {1..25}; do # Aumentar los intentos a 25
-          # Usar el nombre del servicio correcto aquí. Si tu servicio es 'app', déjalo.
-          # Si es otro nombre (ej. 'mi_aplicacion_dummy'), cámbialo.
-          if curl -sv http://app:3000/api/ping | grep -q pong; then # Añadido '-v' a curl
+        for i in {1..10}; do
+          if curl -s http://localhost:3000/api/ping | grep -q pong; then
             echo "API is up ✅"
             break
           fi
           echo "Waiting for API..."
-          sleep 4 # Aumentar el sleep a 4 segundos (25 * 4 = 100 segundos de espera total)
+          sleep 5
         done
-        # Añadir una verificación de falla si la API no sube
-        if ! curl -s http://app:3000/api/ping | grep -q pong; then
-          echo "API did not come up after multiple attempts. Exiting."
-          exit 1
-        fi
-
-    - name: Verify API connectivity from another container
-      run: |
-        echo "Attempting to connect to dummy app from a temporary container..."
-        # Usar el nombre del servicio Docker Compose para la verificación con nc
-        # Usar el nombre del servicio correcto aquí.
-        docker run --rm busybox:latest sh -c "nc -zv app 3000"
-        echo "Connectivity test complete."
-
-    - name: List JMX files for debugging
-      run: |
-        echo "Listing files in jmeter directory:"
-        ls -l jmeter/
 
     - name: Run JMeter test
       run: |
